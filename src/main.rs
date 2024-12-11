@@ -1,27 +1,18 @@
-use comfy_table::Table;
+use crate::runner::Runner;
 use std::fs::{create_dir_all, write};
-use std::time::{Duration, Instant};
-use std::{io::Cursor, iter, path::PathBuf};
+use std::{io::Cursor, iter};
 use ureq::get;
 use url::Url;
 
-#[cfg(feature = "track-memory")]
-#[global_allocator]
-static ALLOC: dhat::Alloc = dhat::Alloc;
+mod runner;
 
 static IGNORE_TAGS: &[&str] = &[
     "nav", "script", "style", "header", "footer", "img", "svg", "iframe",
 ];
 
-struct Stats {
-    name: &'static str,
-    time: Duration,
-    output_size: usize,
-    #[cfg(feature = "track-memory")]
-    peak_memory: usize,
-    #[cfg(feature = "track-memory")]
-    leaked_memory: usize,
-}
+#[cfg(feature = "track-memory")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -138,100 +129,4 @@ fn main() {
 
     println!("{}", runner.into_table());
     println!("Remember to check the output files to make sure they have parsed the information you expect!");
-}
-
-struct Runner {
-    out_dir: PathBuf,
-    html: String,
-    stats: Vec<Stats>,
-}
-
-impl Runner {
-    fn new(out_dir: PathBuf, html: String) -> Self {
-        Self {
-            out_dir,
-            html,
-            stats: Vec::new(),
-        }
-    }
-
-    fn run(&mut self, name: &'static str, extractor: impl Fn(&str) -> String) {
-        let output_file = self.out_dir.join(format!("{}.txt", name));
-
-        #[cfg(feature = "track-memory")]
-        let _profiler = dhat::Profiler::builder().testing().build();
-        let start = Instant::now();
-
-        let parsed = extractor(&self.html);
-
-        let time = start.elapsed();
-        let output_size = parsed.len();
-        write(&output_file, &parsed).unwrap();
-
-        #[cfg(feature = "track-memory")]
-        let stats = {
-            drop(parsed);
-            drop(extractor);
-            std::thread::sleep(Duration::from_millis(10));
-            dhat::HeapStats::get()
-        };
-
-        self.stats.push(Stats {
-            name,
-            time,
-            output_size,
-            #[cfg(feature = "track-memory")]
-            peak_memory: stats.max_bytes,
-            #[cfg(feature = "track-memory")]
-            leaked_memory: stats.curr_bytes,
-        });
-    }
-
-    fn into_table(mut self) -> Table {
-        #[cfg(feature = "track-memory")]
-        self.stats.sort_by_key(|s| s.peak_memory);
-
-        #[cfg(not(feature = "track-memory"))]
-        self.stats.sort_by_key(|s| s.time);
-
-        let mut table = Table::new();
-        table.set_header(vec![
-            "Name",
-            "Time (ms)",
-            "Output Size (bytes)",
-            "% Reduction",
-            #[cfg(feature = "track-memory")]
-            "Peak Memory (bytes)",
-            #[cfg(feature = "track-memory")]
-            "Peak Memory as % of HTML Size",
-            #[cfg(feature = "track-memory")]
-            "Leaked Memory (bytes)",
-            "Output File",
-        ]);
-        for stat in &self.stats {
-            table.add_row(vec![
-                stat.name,
-                &format!("{}", stat.time.as_millis()),
-                &format!("{}", stat.output_size),
-                &format!(
-                    "{:.2}%",
-                    100.0 - (stat.output_size as f64 / self.html.len() as f64) * 100.0
-                ),
-                #[cfg(feature = "track-memory")]
-                &format!("{}", stat.peak_memory),
-                #[cfg(feature = "track-memory")]
-                &format!(
-                    "{:.2}%",
-                    stat.peak_memory as f64 / self.html.len() as f64 * 100.0
-                ),
-                #[cfg(feature = "track-memory")]
-                &format!("{}", stat.leaked_memory),
-                &format!(
-                    "{}",
-                    self.out_dir.join(format!("{}.txt", stat.name)).display()
-                ),
-            ]);
-        }
-        table
-    }
 }
