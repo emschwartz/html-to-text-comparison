@@ -60,35 +60,27 @@ impl Runner {
     }
 
     pub fn into_table(mut self) -> Table {
-        #[cfg(feature = "track-memory")]
-        self.stats.sort_by_key(|s| s.peak_memory);
-
-        #[cfg(not(feature = "track-memory"))]
-        self.stats.sort_by_key(|s| s.time);
+        self.stats.sort_by_key(|s| s.name);
 
         let mut table = Table::new();
         table.set_header(vec![
             "Name",
-            "Time (ms)",
-            "Output Size (bytes)",
-            "% Reduction",
             #[cfg(feature = "track-memory")]
             "Peak Memory (bytes)",
             #[cfg(feature = "track-memory")]
             "Peak Memory as % of HTML Size",
             #[cfg(feature = "track-memory")]
             "Leaked Memory (bytes)",
+            #[cfg(feature = "track-memory")]
+            "Leaked Memory as % of HTML Size",
+            "Time (ms)",
+            "Output Size (bytes)",
+            "% Reduction",
             "Output File",
         ]);
         for stat in &self.stats {
             table.add_row(vec![
                 stat.name,
-                &format!("{}", stat.time.as_millis()),
-                &format!("{}", stat.output_size),
-                &format!(
-                    "{:.2}%",
-                    100.0 - (stat.output_size as f64 / self.html.len() as f64) * 100.0
-                ),
                 #[cfg(feature = "track-memory")]
                 &format!("{}", stat.peak_memory),
                 #[cfg(feature = "track-memory")]
@@ -98,6 +90,17 @@ impl Runner {
                 ),
                 #[cfg(feature = "track-memory")]
                 &format!("{}", stat.leaked_memory),
+                #[cfg(feature = "track-memory")]
+                &format!(
+                    "{:.2}%",
+                    stat.leaked_memory as f64 / self.html.len() as f64 * 100.0
+                ),
+                &format!("{}", stat.time.as_millis()),
+                &format!("{}", stat.output_size),
+                &format!(
+                    "{:.2}%",
+                    100.0 - (stat.output_size as f64 / self.html.len() as f64) * 100.0
+                ),
                 &format!(
                     "{}",
                     self.out_dir.join(format!("{}.txt", stat.name)).display()

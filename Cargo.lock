@@ -543,7 +543,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "html-to-test-comparison"
+name = "html-to-text-comparison"
 version = "0.1.0"
 dependencies = [
  "boilerpipe",
