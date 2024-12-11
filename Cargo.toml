@@ -1,0 +1,40 @@
+[package]
+name = "html-to-test-comparison"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+boilerpipe = { version = "0.6.0", optional = true }
+htmd = { version = "0.1.6", optional = true }
+html2md-rs = { version = "0.10.2", optional = true }
+html2text = { version = "0.13.5", optional = true }
+llm_readability = { version = "0.0.11", optional = true }
+mdka = { version = "1.2.10", optional = true }
+nanohtml2text = { version = "0.2.1", optional = true }
+readability = { version = "0.3.0", optional = true }
+readable-readability = { version = "0.4.0", optional = true }
+tokio = { version = "1.42.0", features = ["full"] }
+ureq = "2.12.1"
+url = "2.5.4"
+
+[features]
+default = [
+    "boilerpipe",
+    "htmd",
+    "html2md-rs",
+    "html2text",
+    "llm_readability",
+    "mdka",
+    "nanohtml2text",
+    "readability",
+    "readable-readability",
+]
+htmd = ["dep:htmd"]
+html2md-rs = ["dep:html2md-rs"]
+html2text = ["dep:html2text"]
+llm_readability = ["dep:llm_readability"]
+mdka = ["dep:mdka"]
+nanohtml2text = ["dep:nanohtml2text"]
+readability = ["dep:readability"]
+readable-readability = ["dep:readable-readability"]
+boilerpipe = ["dep:boilerpipe"]
