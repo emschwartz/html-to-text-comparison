@@ -1,4 +1,4 @@
-use comfy_table::Table;
+use comfy_table::{CellAlignment, Table};
 use std::time::{Duration, Instant};
 use std::{fs::write, path::PathBuf};
 
@@ -73,11 +73,22 @@ impl Runner {
             "Leaked Memory (bytes)",
             #[cfg(feature = "track-memory")]
             "Leaked Memory as % of HTML Size",
-            "Time (ms)",
+            "Time (microseconds)",
             "Output Size (bytes)",
             "% Reduction",
             "Output File",
         ]);
+        #[cfg(feature = "track-memory")]
+        let numeric_columns = 1..=6;
+        #[cfg(not(feature = "track-memory"))]
+        let numeric_columns = 1..=3;
+        for column in numeric_columns {
+            table
+                .column_mut(column)
+                .unwrap()
+                .set_cell_alignment(CellAlignment::Right);
+        }
+
         for stat in &self.stats {
             table.add_row(vec![
                 stat.name,
@@ -95,7 +106,7 @@ impl Runner {
                     "{:.2}%",
                     stat.leaked_memory as f64 / self.html.len() as f64 * 100.0
                 ),
-                &format!("{}", stat.time.as_millis()),
+                &format!("{}", stat.time.as_micros()),
                 &format!("{}", stat.output_size),
                 &format!(
                     "{:.2}%",
