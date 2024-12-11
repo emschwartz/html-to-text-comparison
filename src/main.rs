@@ -19,6 +19,8 @@ struct Stats {
     output_size: usize,
     #[cfg(feature = "track-memory")]
     peak_memory: usize,
+    #[cfg(feature = "track-memory")]
+    leaked_memory: usize,
 }
 
 fn main() {
@@ -52,17 +54,18 @@ fn main() {
 
     let mut runner = Runner::new(out_dir, html);
 
-    #[cfg(feature = "readability")]
-    {
-        runner.run_with_reader("readability", |html| {
-            readability::extractor::extract(html, &url).unwrap().text
-        });
-    }
+    runner.run("readability", |html| {
+        let mut html = Cursor::new(html.as_bytes());
+        readability::extractor::extract(&mut html, &url)
+            .unwrap()
+            .text
+    });
 
     #[cfg(feature = "llm_readability")]
     {
-        runner.run_with_reader("llm_readability", |html| {
-            llm_readability::extractor::extract(html, &url)
+        runner.run("llm_readability", |html| {
+            let mut html = Cursor::new(html.as_bytes());
+            llm_readability::extractor::extract(&mut html, &url)
                 .unwrap()
                 .text
         });
@@ -70,7 +73,10 @@ fn main() {
 
     #[cfg(feature = "html2text")]
     {
-        runner.run_with_reader("html2text", |html| html2text::from_read(html, 150).unwrap());
+        runner.run("html2text", |html| {
+            let mut html = Cursor::new(html.as_bytes());
+            html2text::from_read(&mut html, 150).unwrap()
+        });
     }
 
     #[cfg(feature = "htmd")]
@@ -150,6 +156,8 @@ impl Runner {
     }
 
     fn run(&mut self, name: &'static str, extractor: impl Fn(&str) -> String) {
+        let output_file = self.out_dir.join(format!("{}.txt", name));
+
         #[cfg(feature = "track-memory")]
         let _profiler = dhat::Profiler::builder().testing().build();
         let start = Instant::now();
@@ -157,42 +165,26 @@ impl Runner {
         let parsed = extractor(&self.html);
 
         let time = start.elapsed();
-
-        self.stats.push(Stats {
-            name,
-            time,
-            output_size: parsed.len(),
-            #[cfg(feature = "track-memory")]
-            peak_memory: dhat::HeapStats::get().max_bytes,
-        });
-        let output_file = self.out_dir.join(format!("{}.txt", name));
+        let output_size = parsed.len();
         write(&output_file, &parsed).unwrap();
-    }
-
-    fn run_with_reader(
-        &mut self,
-        name: &'static str,
-        extractor: impl Fn(&mut Cursor<&[u8]>) -> String,
-    ) {
-        let mut reader = Cursor::new(self.html.as_bytes());
 
         #[cfg(feature = "track-memory")]
-        let _profiler = dhat::Profiler::builder().testing().build();
-        let start = Instant::now();
-
-        let parsed = extractor(&mut reader);
-
-        let time = start.elapsed();
+        let stats = {
+            drop(parsed);
+            drop(extractor);
+            std::thread::sleep(Duration::from_millis(10));
+            dhat::HeapStats::get()
+        };
 
         self.stats.push(Stats {
             name,
             time,
-            output_size: parsed.len(),
+            output_size,
             #[cfg(feature = "track-memory")]
-            peak_memory: dhat::HeapStats::get().max_bytes,
+            peak_memory: stats.max_bytes,
+            #[cfg(feature = "track-memory")]
+            leaked_memory: stats.curr_bytes,
         });
-        let output_file = self.out_dir.join(format!("{}.txt", name));
-        write(&output_file, &parsed).unwrap();
     }
 
     fn into_table(mut self) -> Table {
@@ -212,6 +204,8 @@ impl Runner {
             "Peak Memory (bytes)",
             #[cfg(feature = "track-memory")]
             "Peak Memory as % of HTML Size",
+            #[cfg(feature = "track-memory")]
+            "Leaked Memory (bytes)",
             "Output File",
         ]);
         for stat in &self.stats {
@@ -230,6 +224,8 @@ impl Runner {
                     "{:.2}%",
                     stat.peak_memory as f64 / self.html.len() as f64 * 100.0
                 ),
+                #[cfg(feature = "track-memory")]
+                &format!("{}", stat.leaked_memory),
                 &format!(
                     "{}",
                     self.out_dir.join(format!("{}.txt", stat.name)).display()
