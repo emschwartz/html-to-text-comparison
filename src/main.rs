@@ -126,6 +126,7 @@ async fn main() {
     }
 
     println!("{}", runner.into_table());
+    println!("Remember to check the output files to make sure they have parsed the information you expect!");
 }
 
 struct Runner {
@@ -179,6 +180,7 @@ impl Runner {
             "Name",
             "Time (ms)",
             "Output Size (bytes)",
+            "% Reduction",
             "Output File",
         ]);
         for stat in &self.stats {
@@ -186,6 +188,10 @@ impl Runner {
                 stat.name,
                 &format!("{}", stat.time.as_millis()),
                 &format!("{}", stat.output_size),
+                &format!(
+                    "{:.2}%",
+                    100.0 - (stat.output_size as f64 / self.html.len() as f64) * 100.0
+                ),
                 &format!(
                     "{}",
                     self.out_dir.join(format!("{}.txt", stat.name)).display()
