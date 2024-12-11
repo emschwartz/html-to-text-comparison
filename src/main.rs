@@ -1,8 +1,10 @@
 use comfy_table::Table;
+use memory_stats::memory_stats;
 use std::fs::{create_dir_all, write};
-use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread::{sleep, spawn, JoinHandle};
 use std::time::{Duration, Instant};
-use std::{io::Cursor, iter};
+use std::{io::Cursor, iter, path::PathBuf, sync::Arc};
 use ureq::get;
 use url::Url;
 
@@ -14,6 +16,7 @@ struct Stats {
     name: &'static str,
     time: Duration,
     output_size: usize,
+    peak_memory: usize,
 }
 
 #[tokio::main]
@@ -44,6 +47,7 @@ async fn main() {
 
     let html_file = out_dir.join("html.html");
     write(&html_file, &html).unwrap();
+    println!("HTML Size (bytes): {}", html.len());
 
     let mut runner = Runner::new(out_dir, html);
 
@@ -145,12 +149,22 @@ impl Runner {
     }
 
     fn run(&mut self, name: &'static str, extractor: impl Fn(&str) -> String) {
+        let (handle, running) = self.track_memory();
+        sleep(Duration::from_millis(100));
+
         let start = Instant::now();
         let parsed = extractor(&self.html);
+        let time = start.elapsed();
+
+        running.store(false, Ordering::SeqCst);
+        let peak_memory = handle.join().unwrap();
+        sleep(Duration::from_millis(100));
+
         self.stats.push(Stats {
             name,
-            time: start.elapsed(),
+            time,
             output_size: parsed.len(),
+            peak_memory,
         });
         let output_file = self.out_dir.join(format!("{}.txt", name));
         write(&output_file, &parsed).unwrap();
@@ -162,15 +176,42 @@ impl Runner {
         extractor: impl Fn(&mut Cursor<&[u8]>) -> String,
     ) {
         let mut reader = Cursor::new(self.html.as_bytes());
+        let (handle, running) = self.track_memory();
+        sleep(Duration::from_millis(100));
+
         let start = Instant::now();
         let parsed = extractor(&mut reader);
+        let time = start.elapsed();
+
+        running.store(false, Ordering::SeqCst);
+        let peak_memory = handle.join().unwrap();
+        sleep(Duration::from_millis(100));
+
         self.stats.push(Stats {
             name,
-            time: start.elapsed(),
+            time,
             output_size: parsed.len(),
+            peak_memory,
         });
         let output_file = self.out_dir.join(format!("{}.txt", name));
         write(&output_file, &parsed).unwrap();
+    }
+
+    fn track_memory(&self) -> (JoinHandle<usize>, Arc<AtomicBool>) {
+        let running = Arc::new(AtomicBool::new(true));
+
+        let handle = spawn({
+            let starting_memory = get_current_memory();
+            let mut peak_memory = 0;
+            let running = running.clone();
+            move || {
+                while running.load(Ordering::Relaxed) {
+                    peak_memory = peak_memory.max(get_current_memory());
+                }
+                peak_memory - starting_memory
+            }
+        });
+        (handle, running)
     }
 
     fn into_table(mut self) -> Table {
@@ -181,6 +222,8 @@ impl Runner {
             "Time (ms)",
             "Output Size (bytes)",
             "% Reduction",
+            "Peak Memory (bytes)",
+            "Peak Memory as % of HTML Size",
             "Output File",
         ]);
         for stat in &self.stats {
@@ -192,6 +235,11 @@ impl Runner {
                     "{:.2}%",
                     100.0 - (stat.output_size as f64 / self.html.len() as f64) * 100.0
                 ),
+                &format!("{}", stat.peak_memory),
+                &format!(
+                    "{:.2}%",
+                    stat.peak_memory as f64 / self.html.len() as f64 * 100.0
+                ),
                 &format!(
                     "{}",
                     self.out_dir.join(format!("{}.txt", stat.name)).display()
@@ -200,4 +248,10 @@ impl Runner {
         }
         table
     }
+}
+
+fn get_current_memory() -> usize {
+    memory_stats()
+        .map(|stats| stats.virtual_mem)
+        .unwrap_or_default()
 }
