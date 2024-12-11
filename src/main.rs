@@ -1,12 +1,13 @@
 use comfy_table::Table;
-use memory_stats::memory_stats;
 use std::fs::{create_dir_all, write};
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::thread::{sleep, spawn, JoinHandle};
 use std::time::{Duration, Instant};
-use std::{io::Cursor, iter, path::PathBuf, sync::Arc};
+use std::{io::Cursor, iter, path::PathBuf};
 use ureq::get;
 use url::Url;
+
+#[cfg(feature = "track-memory")]
+#[global_allocator]
+static ALLOC: dhat::Alloc = dhat::Alloc;
 
 static IGNORE_TAGS: &[&str] = &[
     "nav", "script", "style", "header", "footer", "img", "svg", "iframe",
@@ -16,11 +17,11 @@ struct Stats {
     name: &'static str,
     time: Duration,
     output_size: usize,
+    #[cfg(feature = "track-memory")]
     peak_memory: usize,
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let args: Vec<String> = std::env::args().collect();
     let url = if let Some(url) = args.last() {
         Url::parse(url).expect("Invalid URL")
@@ -149,22 +150,20 @@ impl Runner {
     }
 
     fn run(&mut self, name: &'static str, extractor: impl Fn(&str) -> String) {
-        let (handle, running) = self.track_memory();
-        sleep(Duration::from_millis(100));
-
+        #[cfg(feature = "track-memory")]
+        let _profiler = dhat::Profiler::builder().testing().build();
         let start = Instant::now();
-        let parsed = extractor(&self.html);
-        let time = start.elapsed();
 
-        running.store(false, Ordering::SeqCst);
-        let peak_memory = handle.join().unwrap();
-        sleep(Duration::from_millis(100));
+        let parsed = extractor(&self.html);
+
+        let time = start.elapsed();
 
         self.stats.push(Stats {
             name,
             time,
             output_size: parsed.len(),
-            peak_memory,
+            #[cfg(feature = "track-memory")]
+            peak_memory: dhat::HeapStats::get().max_bytes,
         });
         let output_file = self.out_dir.join(format!("{}.txt", name));
         write(&output_file, &parsed).unwrap();
@@ -176,53 +175,42 @@ impl Runner {
         extractor: impl Fn(&mut Cursor<&[u8]>) -> String,
     ) {
         let mut reader = Cursor::new(self.html.as_bytes());
-        let (handle, running) = self.track_memory();
-        sleep(Duration::from_millis(100));
 
+        #[cfg(feature = "track-memory")]
+        let _profiler = dhat::Profiler::builder().testing().build();
         let start = Instant::now();
-        let parsed = extractor(&mut reader);
-        let time = start.elapsed();
 
-        running.store(false, Ordering::SeqCst);
-        let peak_memory = handle.join().unwrap();
-        sleep(Duration::from_millis(100));
+        let parsed = extractor(&mut reader);
+
+        let time = start.elapsed();
 
         self.stats.push(Stats {
             name,
             time,
             output_size: parsed.len(),
-            peak_memory,
+            #[cfg(feature = "track-memory")]
+            peak_memory: dhat::HeapStats::get().max_bytes,
         });
         let output_file = self.out_dir.join(format!("{}.txt", name));
         write(&output_file, &parsed).unwrap();
     }
 
-    fn track_memory(&self) -> (JoinHandle<usize>, Arc<AtomicBool>) {
-        let running = Arc::new(AtomicBool::new(true));
-
-        let handle = spawn({
-            let starting_memory = get_current_memory();
-            let mut peak_memory = 0;
-            let running = running.clone();
-            move || {
-                while running.load(Ordering::Relaxed) {
-                    peak_memory = peak_memory.max(get_current_memory());
-                }
-                peak_memory - starting_memory
-            }
-        });
-        (handle, running)
-    }
-
     fn into_table(mut self) -> Table {
+        #[cfg(feature = "track-memory")]
+        self.stats.sort_by_key(|s| s.peak_memory);
+
+        #[cfg(not(feature = "track-memory"))]
         self.stats.sort_by_key(|s| s.time);
+
         let mut table = Table::new();
         table.set_header(vec![
             "Name",
             "Time (ms)",
             "Output Size (bytes)",
             "% Reduction",
+            #[cfg(feature = "track-memory")]
             "Peak Memory (bytes)",
+            #[cfg(feature = "track-memory")]
             "Peak Memory as % of HTML Size",
             "Output File",
         ]);
@@ -235,7 +223,9 @@ impl Runner {
                     "{:.2}%",
                     100.0 - (stat.output_size as f64 / self.html.len() as f64) * 100.0
                 ),
+                #[cfg(feature = "track-memory")]
                 &format!("{}", stat.peak_memory),
+                #[cfg(feature = "track-memory")]
                 &format!(
                     "{:.2}%",
                     stat.peak_memory as f64 / self.html.len() as f64 * 100.0
@@ -248,10 +238,4 @@ impl Runner {
         }
         table
     }
-}
-
-fn get_current_memory() -> usize {
-    memory_stats()
-        .map(|stats| stats.virtual_mem)
-        .unwrap_or_default()
 }
