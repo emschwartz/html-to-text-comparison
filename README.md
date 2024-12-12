@@ -1,4 +1,4 @@
-# HTML to Text Comparison
+# Rust HTML to Text Comparison
 
 This compares various Rust crates for extracting text from HTML:
 
@@ -11,6 +11,10 @@ This compares various Rust crates for extracting text from HTML:
 - [nanohtml2text](https://crates.io/crates/nanohtml2text) ![nanohtml2text](https://img.shields.io/crates/d/nanohtml2text)
 - [readability](https://crates.io/crates/readability) ![readability](https://img.shields.io/crates/d/readability)
 - [readable-readability](https://crates.io/crates/readable-readability) ![readable-readability](https://img.shields.io/crates/d/readable-readability)
+
+These crates are used for a variety of different purposes, ranging from displaying websites in a terminal to extracting text for use in LLMs.
+
+I am particularly interested in picking one to use for [Scour](https://scour.ing), where I need to run websites through an LLM embedding model for semantic search.
 
 ## Usage
 
