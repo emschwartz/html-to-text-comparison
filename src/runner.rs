@@ -31,7 +31,8 @@ impl Runner {
 
         // Measure memory allocation
         let stats = allocation_counter::measure(|| {
-            let _parsed = black_box(extractor(&self.html));
+            let parsed = black_box(extractor(&self.html));
+            drop(parsed);
         });
 
         // Run it again to measure time and write the output to a file
