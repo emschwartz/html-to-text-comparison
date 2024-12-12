@@ -6,10 +6,8 @@ struct Stats {
     name: &'static str,
     time: Duration,
     output_size: usize,
-    #[cfg(feature = "track-memory")]
-    peak_memory: usize,
-    #[cfg(feature = "track-memory")]
-    leaked_memory: usize,
+    peak_memory: u64,
+    leaked_memory: i64,
 }
 
 pub struct Runner {
@@ -30,32 +28,25 @@ impl Runner {
     pub fn run(&mut self, name: &'static str, extractor: impl Fn(&str) -> String) {
         let output_file = self.out_dir.join(format!("{}.txt", name));
 
-        #[cfg(feature = "track-memory")]
-        let _profiler = dhat::Profiler::builder().testing().build();
-        let start = Instant::now();
+        let mut time = Duration::ZERO;
+        let mut output_size = 0;
 
-        let parsed = extractor(&self.html);
+        let stats = allocation_counter::measure(|| {
+            let start = Instant::now();
 
-        let time = start.elapsed();
-        let output_size = parsed.len();
-        write(&output_file, &parsed).unwrap();
+            let parsed = extractor(&self.html);
 
-        #[cfg(feature = "track-memory")]
-        let stats = {
-            drop(parsed);
-            drop(extractor);
-            std::thread::sleep(Duration::from_millis(10));
-            dhat::HeapStats::get()
-        };
+            time = start.elapsed();
+            output_size = parsed.len();
+            write(&output_file, &parsed).unwrap();
+        });
 
         self.stats.push(Stats {
             name,
             time,
             output_size,
-            #[cfg(feature = "track-memory")]
-            peak_memory: stats.max_bytes,
-            #[cfg(feature = "track-memory")]
-            leaked_memory: stats.curr_bytes,
+            peak_memory: stats.bytes_max,
+            leaked_memory: stats.bytes_current,
         });
     }
 
@@ -65,23 +56,16 @@ impl Runner {
         let mut table = Table::new();
         table.set_header(vec![
             "Name",
-            #[cfg(feature = "track-memory")]
-            "Peak Memory (bytes)",
-            #[cfg(feature = "track-memory")]
-            "Peak Memory as % of HTML Size",
-            #[cfg(feature = "track-memory")]
-            "Leaked Memory (bytes)",
-            #[cfg(feature = "track-memory")]
-            "Leaked Memory as % of HTML Size",
             "Time (microseconds)",
+            "Peak Memory (bytes)",
+            "Peak Memory as % of HTML Size",
+            "Leaked Memory (bytes)",
+            "Leaked Memory as % of HTML Size",
             "Output Size (bytes)",
             "% Reduction",
             "Output File",
         ]);
-        #[cfg(feature = "track-memory")]
         let numeric_columns = 1..=6;
-        #[cfg(not(feature = "track-memory"))]
-        let numeric_columns = 1..=3;
         for column in numeric_columns {
             table
                 .column_mut(column)
@@ -92,21 +76,17 @@ impl Runner {
         for stat in &self.stats {
             table.add_row(vec![
                 stat.name,
-                #[cfg(feature = "track-memory")]
+                &format!("{}", stat.time.as_micros()),
                 &format!("{}", stat.peak_memory),
-                #[cfg(feature = "track-memory")]
                 &format!(
                     "{:.2}%",
                     stat.peak_memory as f64 / self.html.len() as f64 * 100.0
                 ),
-                #[cfg(feature = "track-memory")]
                 &format!("{}", stat.leaked_memory),
-                #[cfg(feature = "track-memory")]
                 &format!(
                     "{:.2}%",
                     stat.leaked_memory as f64 / self.html.len() as f64 * 100.0
                 ),
-                &format!("{}", stat.time.as_micros()),
                 &format!("{}", stat.output_size),
                 &format!(
                     "{:.2}%",

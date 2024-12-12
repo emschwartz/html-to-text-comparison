@@ -16,16 +16,6 @@ This compares various Rust crates for extracting text from HTML:
 
 This will download the HTML from the given URL, run the HTML through the extractor from each crate, write the output to a file in `out/`, and then print a table of the results.
 
-### Comparing Speed
-
 ```sh
 cargo run --release -- <url-to-scrape>
-```
-
-### Comparing Memory Usage
-
-We can optionally use [`dhat`](https://crates.io/crates/dhat) to track memory usage. Note that the time will be slower when using this option.
-
-```sh
-cargo run --release --features=track-memory -- <url-to-scrape>
 ```

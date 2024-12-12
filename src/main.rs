@@ -10,10 +10,6 @@ static IGNORE_TAGS: &[&str] = &[
     "nav", "script", "style", "header", "footer", "img", "svg", "iframe",
 ];
 
-#[cfg(feature = "track-memory")]
-#[global_allocator]
-static ALLOC: dhat::Alloc = dhat::Alloc;
-
 fn main() {
     let args: Vec<String> = std::env::args().collect();
     let url = if let Some(url) = args.last() {
@@ -66,7 +62,7 @@ fn main() {
     {
         runner.run("html2text", |html| {
             let mut html = Cursor::new(html.as_bytes());
-            html2text::from_read(&mut html, 150).unwrap()
+            html2text::from_read(&mut html, 150).unwrap_or_default()
         });
     }
 
@@ -77,7 +73,7 @@ fn main() {
                 .skip_tags(IGNORE_TAGS.to_vec())
                 .build()
                 .convert(html)
-                .unwrap()
+                .unwrap_or_default()
         });
     }
 
@@ -96,7 +92,7 @@ fn main() {
                         .collect(),
                 },
             )
-            .unwrap()
+            .unwrap_or_default()
         });
     }
 
