@@ -2,15 +2,15 @@
 
 This compares various Rust crates for extracting text from HTML:
 
-- [boilerpipe](https://crates.io/crates/boilerpipe)
-- [htmd](https://crates.io/crates/htmd)
-- [html2md-rs](https://crates.io/crates/html2md-rs)
-- [html2text](https://crates.io/crates/html2text)
-- [llm_readability](https://crates.io/crates/llm_readability)
-- [mdka](https://crates.io/crates/mdka)
-- [nanohtml2text](https://crates.io/crates/nanohtml2text)
-- [readability](https://crates.io/crates/readability)
-- [readable-readability](https://crates.io/crates/readable-readability)
+- [boilerpipe](https://crates.io/crates/boilerpipe) ![boilerpipe](https://img.shields.io/crates/d/boilerpipe)
+- [htmd](https://crates.io/crates/htmd) ![htmd](https://img.shields.io/crates/d/htmd)
+- [html2md-rs](https://crates.io/crates/html2md-rs) ![html2md-rs](https://img.shields.io/crates/d/html2md-rs)
+- [html2text](https://crates.io/crates/html2text) ![html2text](https://img.shields.io/crates/d/html2text)
+- [llm_readability](https://crates.io/crates/llm_readability) ![llm_readability](https://img.shields.io/crates/d/llm_readability)
+- [mdka](https://crates.io/crates/mdka) ![mdka](https://img.shields.io/crates/d/mdka)
+- [nanohtml2text](https://crates.io/crates/nanohtml2text) ![nanohtml2text](https://img.shields.io/crates/d/nanohtml2text)
+- [readability](https://crates.io/crates/readability) ![readability](https://img.shields.io/crates/d/readability)
+- [readable-readability](https://crates.io/crates/readable-readability) ![readable-readability](https://img.shields.io/crates/d/readable-readability)
 
 ## Usage
 
