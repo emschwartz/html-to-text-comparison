@@ -1,4 +1,5 @@
 use comfy_table::{CellAlignment, Table};
+use std::hint::black_box;
 use std::time::{Duration, Instant};
 use std::{fs::write, path::PathBuf};
 
@@ -28,18 +29,18 @@ impl Runner {
     pub fn run(&mut self, name: &'static str, extractor: impl Fn(&str) -> String) {
         let output_file = self.out_dir.join(format!("{}.txt", name));
 
-        let mut time = Duration::ZERO;
-        let mut output_size = 0;
-
+        // Measure memory allocation
         let stats = allocation_counter::measure(|| {
-            let start = Instant::now();
-
-            let parsed = extractor(&self.html);
-
-            time = start.elapsed();
-            output_size = parsed.len();
-            write(&output_file, &parsed).unwrap();
+            let _parsed = black_box(extractor(&self.html));
         });
+
+        // Run it again to measure time and write the output to a file
+        let start = Instant::now();
+        let output = extractor(&self.html);
+        let time = start.elapsed();
+
+        let output_size = output.len();
+        write(&output_file, &output).unwrap();
 
         self.stats.push(Stats {
             name,

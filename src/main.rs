@@ -62,7 +62,7 @@ fn main() {
     {
         runner.run("html2text", |html| {
             let mut html = Cursor::new(html.as_bytes());
-            html2text::from_read(&mut html, 150).unwrap_or_default()
+            html2text::from_read(&mut html, 1000).unwrap_or_default()
         });
     }
 
