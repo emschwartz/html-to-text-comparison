@@ -3,12 +3,14 @@ use std::hint::black_box;
 use std::time::{Duration, Instant};
 use std::{fs::write, path::PathBuf};
 
-struct Stats {
+#[derive(Debug, Default)]
+pub struct Stats {
     name: &'static str,
     time: Duration,
     output_size: usize,
     peak_memory: u64,
-    leaked_memory: i64,
+    leaked_memory_single_run: i64,
+    leaked_memory_average: i64,
 }
 
 pub struct Runner {
@@ -27,29 +29,54 @@ impl Runner {
     }
 
     pub fn run(&mut self, name: &'static str, extractor: impl Fn(&str) -> String) {
-        let output_file = self.out_dir.join(format!("{}.txt", name));
+        let num_runs: usize = 10;
+        let mut stats = (0..num_runs)
+            .map(|_| self.calculate_statistics(name, &extractor))
+            .fold(Stats::default(), |acc, s| Stats {
+                name,
+                time: acc.time + s.time,
+                output_size: acc.output_size + s.output_size,
+                peak_memory: acc.peak_memory.max(s.peak_memory),
+                leaked_memory_single_run: s.leaked_memory_single_run,
+                leaked_memory_average: acc.leaked_memory_average + s.leaked_memory_single_run,
+            });
+        stats.time /= num_runs as u32;
+        stats.output_size /= num_runs;
+        stats.peak_memory /= num_runs as u64;
+        stats.leaked_memory_average /= num_runs as i64;
+        self.stats.push(stats);
+        self.write_to_file(name, extractor);
+    }
 
-        // Measure memory allocation
-        let stats = allocation_counter::measure(|| {
+    pub fn calculate_statistics(
+        &mut self,
+        name: &'static str,
+        extractor: &impl Fn(&str) -> String,
+    ) -> Stats {
+        let mut time = Duration::ZERO;
+        let mut output_size = 0;
+        let allocation_info = allocation_counter::measure(|| {
+            let start = Instant::now();
             let parsed = black_box(extractor(&self.html));
+            output_size = parsed.len();
             drop(parsed);
+            time += start.elapsed();
         });
 
-        // Run it again to measure time and write the output to a file
-        let start = Instant::now();
-        let output = extractor(&self.html);
-        let time = start.elapsed();
-
-        let output_size = output.len();
-        write(&output_file, &output).unwrap();
-
-        self.stats.push(Stats {
+        Stats {
             name,
             time,
             output_size,
-            peak_memory: stats.bytes_max,
-            leaked_memory: stats.bytes_current,
-        });
+            peak_memory: allocation_info.bytes_max,
+            leaked_memory_single_run: allocation_info.bytes_current,
+            leaked_memory_average: allocation_info.bytes_current,
+        }
+    }
+
+    pub fn write_to_file(&self, name: &'static str, extractor: impl Fn(&str) -> String) {
+        let output_file = self.out_dir.join(format!("{}.txt", name));
+        let output = extractor(&self.html);
+        write(&output_file, &output).unwrap();
     }
 
     pub fn into_table(mut self) -> Table {
@@ -63,6 +90,8 @@ impl Runner {
             "Peak Memory as % of HTML Size",
             "Leaked Memory (bytes)",
             "Leaked Memory as % of HTML Size",
+            "Leaked Memory Average (bytes)",
+            "Leaked Memory Average as % of HTML Size",
             "Output Size (bytes)",
             "% Reduction",
             "Output File",
@@ -84,10 +113,15 @@ impl Runner {
                     "{:.2}%",
                     stat.peak_memory as f64 / self.html.len() as f64 * 100.0
                 ),
-                &format!("{}", stat.leaked_memory),
+                &format!("{}", stat.leaked_memory_single_run),
                 &format!(
                     "{:.2}%",
-                    stat.leaked_memory as f64 / self.html.len() as f64 * 100.0
+                    stat.leaked_memory_single_run as f64 / self.html.len() as f64 * 100.0
+                ),
+                &format!("{}", stat.leaked_memory_average),
+                &format!(
+                    "{:.2}%",
+                    stat.leaked_memory_average as f64 / self.html.len() as f64 * 100.0
                 ),
                 &format!("{}", stat.output_size),
                 &format!(
