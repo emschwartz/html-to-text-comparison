@@ -128,6 +128,11 @@ fn main() {
         runner.run("august", |html| august::convert(html, usize::MAX));
     }
 
+    #[cfg(feature = "fast_html2md")]
+    {
+        runner.run("fast_html2md", |html| html2md::rewrite_html(html, true));
+    }
+
     println!("{}", runner.into_table());
     println!("Remember to check the output files to make sure they have parsed the information you expect!");
 }
