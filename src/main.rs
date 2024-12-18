@@ -123,6 +123,11 @@ fn main() {
         });
     }
 
+    #[cfg(feature = "august")]
+    {
+        runner.run("august", |html| august::convert(html, usize::MAX));
+    }
+
     println!("{}", runner.into_table());
     println!("Remember to check the output files to make sure they have parsed the information you expect!");
 }

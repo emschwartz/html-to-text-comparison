@@ -2,6 +2,7 @@
 
 This compares various Rust crates for extracting text from HTML:
 
+- [august](https://crates.io/crates/august) ![august](https://img.shields.io/crates/d/august)
 - [boilerpipe](https://crates.io/crates/boilerpipe) ![boilerpipe](https://img.shields.io/crates/d/boilerpipe)
 - [htmd](https://crates.io/crates/htmd) ![htmd](https://img.shields.io/crates/d/htmd)
 - [html2md-rs](https://crates.io/crates/html2md-rs) ![html2md-rs](https://img.shields.io/crates/d/html2md-rs)
