@@ -9,8 +9,6 @@ pub struct Stats {
     time: Duration,
     output_size: usize,
     peak_memory: u64,
-    leaked_memory_single_run: i64,
-    leaked_memory_average: i64,
 }
 
 pub struct Runner {
@@ -37,13 +35,10 @@ impl Runner {
                 time: acc.time + s.time,
                 output_size: acc.output_size + s.output_size,
                 peak_memory: acc.peak_memory.max(s.peak_memory),
-                leaked_memory_single_run: s.leaked_memory_single_run,
-                leaked_memory_average: acc.leaked_memory_average + s.leaked_memory_single_run,
             });
         stats.time /= num_runs as u32;
         stats.output_size /= num_runs;
         stats.peak_memory /= num_runs as u64;
-        stats.leaked_memory_average /= num_runs as i64;
         self.stats.push(stats);
         self.write_to_file(name, extractor);
     }
@@ -53,23 +48,21 @@ impl Runner {
         name: &'static str,
         extractor: &impl Fn(&str) -> String,
     ) -> Stats {
-        let mut time = Duration::ZERO;
-        let mut output_size = 0;
         let allocation_info = allocation_counter::measure(|| {
-            let start = Instant::now();
-            let parsed = black_box(extractor(&self.html));
-            output_size = parsed.len();
-            drop(parsed);
-            time += start.elapsed();
+            let _parsed = black_box(extractor(&self.html));
         });
+
+        let start = Instant::now();
+        let parsed = black_box(extractor(&self.html));
+        let time = start.elapsed();
+        let output_size = parsed.len();
+        drop(parsed);
 
         Stats {
             name,
             time,
             output_size,
             peak_memory: allocation_info.bytes_max,
-            leaked_memory_single_run: allocation_info.bytes_current,
-            leaked_memory_average: allocation_info.bytes_current,
         }
     }
 
@@ -88,15 +81,11 @@ impl Runner {
             "Time (microseconds)",
             "Peak Memory (bytes)",
             "Peak Memory as % of HTML Size",
-            "Leaked Memory (bytes)",
-            "Leaked Memory as % of HTML Size",
-            "Leaked Memory Average (bytes)",
-            "Leaked Memory Average as % of HTML Size",
             "Output Size (bytes)",
             "% Reduction",
             "Output File",
         ]);
-        let numeric_columns = 1..=6;
+        let numeric_columns = 1..=4;
         for column in numeric_columns {
             table
                 .column_mut(column)
@@ -112,16 +101,6 @@ impl Runner {
                 &format!(
                     "{:.2}%",
                     stat.peak_memory as f64 / self.html.len() as f64 * 100.0
-                ),
-                &format!("{}", stat.leaked_memory_single_run),
-                &format!(
-                    "{:.2}%",
-                    stat.leaked_memory_single_run as f64 / self.html.len() as f64 * 100.0
-                ),
-                &format!("{}", stat.leaked_memory_average),
-                &format!(
-                    "{:.2}%",
-                    stat.leaked_memory_average as f64 / self.html.len() as f64 * 100.0
                 ),
                 &format!("{}", stat.output_size),
                 &format!(

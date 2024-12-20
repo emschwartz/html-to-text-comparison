@@ -130,7 +130,7 @@ fn main() {
 
     #[cfg(feature = "fast_html2md")]
     {
-        runner.run("fast_html2md", |html| html2md::rewrite_html(html, true));
+        runner.run("fast_html2md", |html| html2md::rewrite_html(html, false));
     }
 
     println!("{}", runner.into_table());
