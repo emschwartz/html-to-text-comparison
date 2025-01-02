@@ -133,6 +133,18 @@ fn main() {
         runner.run("fast_html2md", |html| html2md::rewrite_html(html, false));
     }
 
+    #[cfg(feature = "dom_smoothie")]
+    {
+        runner.run("dom_smoothie", |html| {
+            dom_smoothie::Readability::new(html, None, None)
+                .unwrap()
+                .parse()
+                .unwrap()
+                .text_content
+                .to_string()
+        });
+    }
+
     println!("{}", runner.into_table());
     println!("Remember to check the output files to make sure they have parsed the information you expect!");
 }
