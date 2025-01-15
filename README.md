@@ -114,3 +114,20 @@ HTML Size (bytes): 351119
 | readable-readability |                5983 |              216618 |                        61.69% |                  53 | 99.98%      | out/readable-readability.txt  |
 +----------------------+---------------------+---------------------+-------------------------------+---------------------+-------------+-------------------------------+
 ```
+
+## Optional: Jina `reader-lm`
+
+You can also compare the results using the [jinaai/reader-lm](https://huggingface.co/jinaai/reader-lm-1.5b) model via their hosted API.
+
+This isn't included by default because it isn't a totally fair comparison.
+It's not running locally and requires an API key. The model has open weights so you could run it locally, but it is licensed under a non-commercial license.
+
+To enable the comparison with the Jina Reader:
+
+1. Get a free API key from https://jina.ai/reader
+2. Build the crate with the `reader-lm-api` feature enabled
+3. Set the `JINA_API_KEY` environment variable
+
+```sh
+JINA_API_KEY=... cargo run --release --features=reader-lm-api -- <url-to-scrape>
+```

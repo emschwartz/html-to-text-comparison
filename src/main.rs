@@ -145,6 +145,19 @@ fn main() {
         });
     }
 
+    #[cfg(feature = "reader-lm-api")]
+    {
+        let jina_api_key = std::env::var("JINA_API_KEY").expect("Must set JINA_API_KEY environment variable. You can get one for free from https://jina.ai/reader");
+        runner.run("reader-lm-api", |_html| {
+            let response = get(&format!("https://r.jina.ai/{url}"))
+                // .set("x-engine", "readerlm-v2")
+                .set("authorization", &format!("Bearer {}", jina_api_key))
+                .call()
+                .expect("Failed to fetch URL");
+            response.into_string().unwrap()
+        });
+    }
+
     println!("{}", runner.into_table());
     println!("Remember to check the output files to make sure they have parsed the information you expect!");
 }
