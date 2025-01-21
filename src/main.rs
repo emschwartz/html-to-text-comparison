@@ -1,11 +1,13 @@
 use crate::runner::Runner;
 use std::fs::{create_dir_all, write};
+#[allow(unused_imports)]
 use std::{io::Cursor, iter};
 use ureq::get;
 use url::Url;
 
 mod runner;
 
+#[allow(dead_code)]
 static IGNORE_TAGS: &[&str] = &[
     "nav", "script", "style", "header", "footer", "img", "svg", "iframe",
 ];
@@ -41,12 +43,15 @@ fn main() {
 
     let mut runner = Runner::new(out_dir, html);
 
-    runner.run("readability", |html| {
-        let mut html = Cursor::new(html.as_bytes());
-        readability::extractor::extract(&mut html, &url)
-            .unwrap()
-            .text
-    });
+    #[cfg(feature = "readability")]
+    {
+        runner.run("readability", |html| {
+            let mut html = Cursor::new(html.as_bytes());
+            readability::extractor::extract(&mut html, &url)
+                .unwrap()
+                .text
+        });
+    }
 
     #[cfg(feature = "llm_readability")]
     {
