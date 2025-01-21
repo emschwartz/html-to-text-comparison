@@ -130,7 +130,9 @@ fn main() {
 
     #[cfg(feature = "fast_html2md")]
     {
-        runner.run("fast_html2md", |html| html2md::rewrite_html(html, false));
+        runner.run("fast_html2md", |html| {
+            fast_html2md::rewrite_html(html, false)
+        });
     }
 
     #[cfg(feature = "dom_smoothie")]
@@ -143,6 +145,11 @@ fn main() {
                 .text_content
                 .to_string()
         });
+    }
+
+    #[cfg(feature = "html2md")]
+    {
+        runner.run("html2md", |html| html2md::parse_html(html));
     }
 
     #[cfg(feature = "reader-lm-api")]
