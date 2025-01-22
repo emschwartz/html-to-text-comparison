@@ -390,9 +390,9 @@ dependencies = [
 
 [[package]]
 name = "dom_query"
-version = "0.11.0"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f36ad8fe49e1234652c9e62472a8429c46d03af5e4d230edf499fd352907786"
+checksum = "688b93023aba6768721b48ec5588308e45ac42d788c6dd974d1c2b9a1d04ea29"
 dependencies = [
  "cssparser 0.34.0",
  "foldhash",
@@ -404,17 +404,17 @@ dependencies = [
 
 [[package]]
 name = "dom_smoothie"
-version = "0.3.0"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "88147dc268d8ede25890504bbbeeb4168d7ea47c1bff921176ddec722660fc1e"
+checksum = "d23bf500fc0a79f9bf12c38816574820929ecf4f6b39ec07743f7ed485439c31"
 dependencies = [
  "dom_query",
  "flagset",
  "gjson",
  "html-escape",
  "once_cell",
+ "phf 0.11.3",
  "regex",
- "serde",
  "tendril",
  "thiserror 2.0.11",
  "unicode-segmentation",
